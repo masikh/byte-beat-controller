@@ -1,31 +1,26 @@
 import json
 import serial
+import time
 
-ser = serial.Serial('/dev/tty.usbmodem1101', baudrate=115200)
 
-def read_serial():
-    # Open the serial device
+ser = serial.Serial('/dev/tty.usbserial-A50285BI', 115200, timeout=0.5)
 
-    # Initialize an empty string to store the data
-    data = ''
 
-    # Read characters from the serial device until an endline is received
+def update():
     while True:
-        c = ser.read().decode('utf-8')
-        if c == '\n':
-            break
-        data += c
+        tic = time.perf_counter()
+        ser.write(48).to_bytes(1, byteorder='little')
+        input0 = ser.read_until()
+        message0 = json.loads(input0.decode('utf-8'))
 
-    # Parse the data as JSON
-    json_data = json.loads(data)
+        ser.write(49).to_bytes(1, byteorder='little')
+        input1 = ser.read_until()
+        message1 = json.loads(input1.decode('utf-8'))
 
-    # Print the JSON data to stdout
-    print(f'\r{json_data}                ', end='')
+        toc = time.perf_counter()
+
+        print(f'{message0} SR-PI: {1/(toc - tic):0.4f}/seconds                        \r', end='')
 
 
-try:
-    while True:
-        read_serial()
-except KeyboardInterrupt:
-    # Close the serial device
-    ser.close()
+if __name__ == '__main__':
+    update()

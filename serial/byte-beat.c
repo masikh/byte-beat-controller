@@ -30,8 +30,9 @@
 #pragma ide diagnostic ignored "EndlessLoop"
 
 int sin_table[180];
-const float conversion_factor = 3.3f / (1 << 12);
 int sample_rate = 0;
+uint8_t CID = 49;  // Controller identifier (48 or 49 for second one)
+
 
 struct UART_INTERFACE {
     uart_inst_t* uart_id;
@@ -92,14 +93,15 @@ void on_uart_rx() {
     char msg_string[100];
 
     // read as ascii char
-    uint8_t ch = uart_getc(uart_0.uart_id); // Check if request is for me! (should be 48)
-    if (ch == 49) {
+    uint8_t cid = uart_getc(uart_0.uart_id); // Check if request is for me (controller id)! (should be 48)
+    if (cid == CID) {
         if (uart_is_writable(uart_0.uart_id)) {
             // Create JSON string
-            sprintf(msg_string, "{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\"}\n",
+            sprintf(msg_string, "{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}\n",
                    pot_meter_0.value, pot_meter_1.value,
                    button_0.status ? "true" : "false", button_1.status ? "true" : "false",
-                   sample_rate);
+                   sample_rate,
+                   cid);
 
             // Send JSON to UART
             uart_puts(uart_0.uart_id, msg_string);
@@ -248,10 +250,11 @@ int main() {
         bool got_data = multicore_fifo_rvalid();
         if (got_data) {
             multicore_fifo_pop_blocking();
-            printf("{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\"}\n",
+            printf("{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}\n",
                    pot_meter_0.value, pot_meter_1.value,
                    button_0.status ? "true" : "false", button_1.status ? "true" : "false",
-                   sample_rate);
+                   sample_rate,
+                   CID);
         }
     }
     return 0;
