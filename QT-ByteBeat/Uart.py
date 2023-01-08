@@ -39,8 +39,8 @@ class Uart:
                 print(error, flush=True)
 
     def read(self):
-        result = {}
         try:
+            result = {}
             self.serial.write((48).to_bytes(1, byteorder='little'))
             input0 = self.serial.read_until()
             result['48'] = json.loads(input0.decode('utf-8'))
@@ -48,16 +48,19 @@ class Uart:
             self.serial.write((49).to_bytes(1, byteorder='little'))
             input_1 = self.serial.read_until()
             result['49'] = json.loads(input_1.decode('utf-8'))
+            return result
         except serial.SerialException as error:
             if self.debug:
                 print(error, flush=True)
             self.close_serial()
             self.open_serial()
+            return None
         except Exception as error:
             if self.debug:
                 print(error, flush=True)
-
-        return result
+            self.close_serial()
+            self.open_serial()
+            return None
 
 
 if __name__ == '__main__':

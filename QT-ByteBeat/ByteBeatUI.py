@@ -28,21 +28,28 @@ class Worker(QObject):
     # noinspection PyUnresolvedReferences
     def run(self):
         while True:
-            if self.debug:
-                message = self.uart.mock()
-            else:
-                message = self.uart.read()
+            try:
+                if self.debug:
+                    message = self.uart.mock()
+                else:
+                    message = self.uart.read()
 
-            if message != {}:
-                self.button_1.emit(message['48']['btn0'])
-                self.button_2.emit(message['48']['btn1'])
-                self.potmeter_1.emit(message['48']['adc0'])
-                self.potmeter_2.emit(message['48']['adc1'])
+                if message is not None:
+                    self.button_1.emit(message['48']['btn0'])
+                    self.button_2.emit(message['48']['btn1'])
+                    self.potmeter_1.emit(message['48']['adc0'])
+                    self.potmeter_2.emit(message['48']['adc1'])
 
-                self.button_3.emit(message['49']['btn0'])
-                self.button_4.emit(message['49']['btn1'])
-                self.potmeter_3.emit(message['49']['adc0'])
-                self.potmeter_4.emit(message['49']['adc1'])
+                    self.button_3.emit(message['49']['btn0'])
+                    self.button_4.emit(message['49']['btn1'])
+                    self.potmeter_3.emit(message['49']['adc0'])
+                    self.potmeter_4.emit(message['49']['adc1'])
+                else:
+                    # Something went wrong, give the uart time to clean up...
+                    sleep(1)
+            except Exception as error:
+                if self.debug:
+                    print(error, flush=True)
 
             # We get two times 15 samples/s times two pico's
             time.sleep(0.07)
