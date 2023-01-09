@@ -75,9 +75,17 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.potmeter_3.setRange(0, 4095)
         self.potmeter_4.setRange(0, 4095)
 
+        # Autocorrect and interpret
+        self.byte_beat_formula = ''
+        self.formula_editor.textEdited.connect(self.interpret_bytebeat_formula)
+
         # Start pico read out and set button/dail values
         self.uart = Uart(self.device_file, debug=self.debug)
         self.get_sensor_data()
+
+    def interpret_bytebeat_formula(self, formula):
+        self.byte_beat_formula = formula.replace(' ', '')
+        self.formula_editor.setText(self.byte_beat_formula)
 
     # noinspection PyUnresolvedReferences
     def get_sensor_data(self):

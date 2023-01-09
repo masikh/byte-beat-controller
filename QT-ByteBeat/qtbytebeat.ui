@@ -151,7 +151,7 @@
   <widget class="QDial" name="potmeter_2">
    <property name="geometry">
     <rect>
-     <x>413</x>
+     <x>427</x>
      <y>284</y>
      <width>100</width>
      <height>100</height>
@@ -179,7 +179,7 @@
   <widget class="QDial" name="potmeter_3">
    <property name="geometry">
     <rect>
-     <x>645</x>
+     <x>674</x>
      <y>284</y>
      <width>100</width>
      <height>100</height>
@@ -207,7 +207,7 @@
   <widget class="QDial" name="potmeter_4">
    <property name="geometry">
     <rect>
-     <x>877</x>
+     <x>920</x>
      <y>284</y>
      <width>100</width>
      <height>100</height>
@@ -292,7 +292,7 @@
   <widget class="QPushButton" name="button_2">
    <property name="geometry">
     <rect>
-     <x>530</x>
+     <x>537</x>
      <y>300</y>
      <width>70</width>
      <height>70</height>
@@ -311,7 +311,7 @@
   <widget class="QPushButton" name="button_3">
    <property name="geometry">
     <rect>
-     <x>760</x>
+     <x>784</x>
      <y>300</y>
      <width>70</width>
      <height>70</height>
@@ -330,7 +330,7 @@
   <widget class="QPushButton" name="button_4">
    <property name="geometry">
     <rect>
-     <x>990</x>
+     <x>1030</x>
      <y>300</y>
      <width>70</width>
      <height>70</height>
