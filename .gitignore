@@ -1,0 +1,16 @@
+# Pycharm
+.idea
+
+# DB files
+db.sqlite3
+
+# Python cache
+__pycache__
+**/pycache
+
+# Python venv
+venv
+
+# Temp files
+kladblok.py
+**/kladblok.py

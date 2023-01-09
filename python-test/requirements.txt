@@ -1,1 +1,9 @@
 pyserial
+numpy
+pysdl2
+pyaudio
+tk
+deap
+scipy
+matplotlib
+PyWavelets
