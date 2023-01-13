@@ -105,6 +105,10 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
         # Start pico read out and set button/dail values
         self.uart = Uart(self.device_file, debug=self.debug)
+
+        # Setup Qthread and worker object
+        self.thread = QThread()
+        self.worker = Worker(self.uart, self.debug)
         self.get_sensor_data()
 
     def interpret_bytebeat_formula(self, formula):
@@ -113,17 +117,15 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
     # noinspection PyUnresolvedReferences
     def get_sensor_data(self):
-        # Step 2: Create a QThread object
-        self.thread = QThread()
-        # Step 3: Create a worker object
-        self.worker = Worker(self.uart, self.debug)
-        # Step 4: Move worker to the thread
+        # Move worker to the thread
         self.worker.moveToThread(self.thread)
-        # Step 5: Connect signals and slots
+
+        # Connect signals and slots
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
+
         self.worker.button_1.connect(self.update_button_1)
         self.worker.button_2.connect(self.update_button_2)
         self.worker.button_3.connect(self.update_button_3)
@@ -135,7 +137,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker.button_left.connect(self.update_left_button)
         self.worker.button_right.connect(self.update_right_button)
 
-        # Step 6: Start the thread
+        # Start the thread
         self.thread.start()
 
     def update_button_1(self, status):
