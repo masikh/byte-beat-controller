@@ -3,8 +3,8 @@ import os
 import time
 import RPi.GPIO as GPIO
 from qtbytebeat import Ui_Form
-from PyQt5 import QtCore
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, QStringListModel
 from PyQt5 import QtWidgets as qtw
 from Stylesheet import stylesheet
 from Uart import Uart
@@ -28,6 +28,8 @@ class Worker(QObject):
     potmeter_4 = pyqtSignal(int)
     button_left = pyqtSignal(bool)
     button_right = pyqtSignal(bool)
+    button_left_last_value = 0
+    button_right_last_value = 0
 
     def __init__(self, uart, debug):
         super().__init__()
@@ -57,15 +59,13 @@ class Worker(QObject):
                     # Something went wrong, give the uart time to clean up...
                     sleep(1)
 
-                if GPIO.input(left_button_gpio) == 1:
-                    self.button_left.emit(True)
-                else:
-                    self.button_left.emit(False)
+                if GPIO.input(left_button_gpio) != self.button_left_last_value:
+                    self.button_left.emit(GPIO.input(left_button_gpio))
+                    self.button_left_last_value = GPIO.input(left_button_gpio)
 
-                if GPIO.input(right_button_gpio) == 1:
-                    self.button_right.emit(True)
-                else:
-                    self.button_right.emit(False)
+                if GPIO.input(right_button_gpio) != self.button_right_last_value:
+                    self.button_right.emit(GPIO.input(right_button_gpio))
+                    self.button_right_last_value = GPIO.input(right_button_gpio)
 
             except Exception as error:
                 if self.debug:
@@ -111,9 +111,20 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker = Worker(self.uart, self.debug)
         self.get_sensor_data()
 
+        # Connect a return pressed on the line edit to the qlistview
+        self.formula_selector_model = QStringListModel([f'slot {i}' for i in range(1, 21)])
+        self.formula_selector.setModel(self.formula_selector_model)
+        self.formula_editor.returnPressed.connect(self.add_to_formula_selector)
+        self.update_left_button(False, init=True)
+
     def interpret_bytebeat_formula(self, formula):
         self.byte_beat_formula = formula.replace(' ', '')
         self.formula_editor.setText(self.byte_beat_formula)
+
+    def add_to_formula_selector(self):
+        self.formula_selector_model.insertRow(self.formula_selector_model.rowCount())
+        self.formula_selector_model.setData(self.formula_selector_model.index(self.formula_selector_model.rowCount() - 1), self.formula_editor.text())
+        self.formula_editor.clear()
 
     # noinspection PyUnresolvedReferences
     def get_sensor_data(self):
@@ -164,8 +175,21 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
     def update_potmeter_4(self, value):
         self.potmeter_4.setValue(value)
 
-    def update_left_button(self, status):
+    def update_left_button(self, status, init=False):
         self.button_left.setEnabled(status)
+        if status is True or init is True:
+            row_count = self.formula_selector_model.rowCount()
+            if init is True:
+                first_index = self.formula_selector_model.index(row_count - 1)
+                self.formula_selector.setCurrentIndex(first_index)
+
+            current_index = self.formula_selector.currentIndex()
+            next_index = current_index.sibling(current_index.row() + 1, 0)
+
+            if current_index.row() + 1 == row_count:
+                next_index = current_index.sibling(0, 0)
+            self.formula_selector.setCurrentIndex(next_index)
+            self.formula_selector.scrollTo(next_index)
 
     def update_right_button(self, status):
         self.button_right.setEnabled(status)

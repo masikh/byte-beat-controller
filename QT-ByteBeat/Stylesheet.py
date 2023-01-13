@@ -15,6 +15,8 @@ stylesheet = """
     background-image: url(bg:assets/nebula_bottom.png);
     background-repeat: no-repeat;
     background-position: center;
+    background-attachment: fixed;
+    font-size: 32px;
 }
 
 #potmeter_1 {
@@ -106,9 +108,25 @@ stylesheet = """
     border-radius: 10px;
 }
 
-QLineEdit
-{
-  color: black;
-  padding: 12px;
+QLineEdit {
+    color: black;
+    padding: 12px;
+}
+
+QListView {
+    color: green;
+}
+
+QListWidget:item:selected:active {
+    background: blue;
+}
+QListWidget:item:selected:!active {
+    background: gray;
+}
+QListWidget:item:selected:disabled {
+    background: gray;
+}
+QListWidget:item:selected:!disabled {
+    background: blue;
 }
 """
