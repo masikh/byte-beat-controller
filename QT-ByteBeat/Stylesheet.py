@@ -39,9 +39,21 @@ stylesheet = """
     border-radius: 55;
 }
 
+#button_right:enabled {
+    border: 12px solid black;
+    background-color: darkred;
+    border-radius: 55;
+}
+
 #button_left {
     border: 12px solid black;
     background-color: red;
+    border-radius: 55;
+}
+
+#button_left:enabled {
+    border: 12px solid black;
+    background-color: darkred;
     border-radius: 55;
 }
 

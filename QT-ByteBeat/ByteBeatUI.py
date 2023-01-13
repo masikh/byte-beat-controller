@@ -1,12 +1,19 @@
 import argparse
 import os
 import time
+import RPi.GPIO as GPIO
 from qtbytebeat import Ui_Form
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5 import QtWidgets as qtw
 from Stylesheet import stylesheet
 from Uart import Uart
+
+left_button_gpio = 23
+right_button_gpio = 24
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(left_button_gpio, GPIO.IN)
+GPIO.setup(right_button_gpio, GPIO.IN)
 
 
 class Worker(QObject):
@@ -19,6 +26,8 @@ class Worker(QObject):
     potmeter_2 = pyqtSignal(int)
     potmeter_3 = pyqtSignal(int)
     potmeter_4 = pyqtSignal(int)
+    button_left = pyqtSignal(bool)
+    button_right = pyqtSignal(bool)
 
     def __init__(self, uart, debug):
         super().__init__()
@@ -47,6 +56,17 @@ class Worker(QObject):
                 else:
                     # Something went wrong, give the uart time to clean up...
                     sleep(1)
+
+                if GPIO.input(left_button_gpio) == 1:
+                    self.button_left.emit(True)
+                else:
+                    self.button_left.emit(False)
+
+                if GPIO.input(right_button_gpio) == 1:
+                    self.button_right.emit(True)
+                else:
+                    self.button_right.emit(False)
+
             except Exception as error:
                 if self.debug:
                     print(error, flush=True)
@@ -74,6 +94,10 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.potmeter_2.setRange(0, 4095)
         self.potmeter_3.setRange(0, 4095)
         self.potmeter_4.setRange(0, 4095)
+
+        # Set Raspberry PI push-buttons
+        self.button_left.setEnabled(False)
+        self.button_right.setEnabled(False)
 
         # Autocorrect and interpret
         self.byte_beat_formula = ''
@@ -108,6 +132,8 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker.potmeter_2.connect(self.update_potmeter_2)
         self.worker.potmeter_3.connect(self.update_potmeter_3)
         self.worker.potmeter_4.connect(self.update_potmeter_4)
+        self.worker.button_left.connect(self.update_left_button)
+        self.worker.button_right.connect(self.update_right_button)
 
         # Step 6: Start the thread
         self.thread.start()
@@ -135,6 +161,12 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
     def update_potmeter_4(self, value):
         self.potmeter_4.setValue(value)
+
+    def update_left_button(self, status):
+        self.button_left.setEnabled(status)
+
+    def update_right_button(self, status):
+        self.button_right.setEnabled(status)
 
 
 if __name__ == '__main__':
