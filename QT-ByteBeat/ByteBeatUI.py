@@ -141,6 +141,8 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
             text = f'slot {current_index.row() + 1}'
             self.formula_editor.setText(text)
         self.formula_selector_model.setData(self.formula_selector_model.index(current_index.row()), text)
+
+        # Save to database
         self.db.update_row(current_index.row() + 1, text)
 
     # noinspection PyUnresolvedReferences
