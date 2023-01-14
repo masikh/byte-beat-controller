@@ -3,12 +3,15 @@ import os
 import time
 import RPi.GPIO as GPIO
 from qtbytebeat import Ui_Form
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, QStringListModel
+from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets as qtw
 from Stylesheet import stylesheet
 from Uart import Uart
+from TinySQL import TinySQL
 
+# Define button connections on the raspberry pi 4
 left_button_gpio = 23
 right_button_gpio = 24
 GPIO.setmode(GPIO.BCM)
@@ -81,7 +84,13 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.device_file = device_file
         self.debug = debug
         self.setupUi(self)
-        # self.showMaximized()
+
+        # Setup database
+        self.slots = []
+        self.db = TinySQL('bytebeat.db')
+        if self.db.is_new_db:
+            [self.db.insert_row(f'slot {i}') for i in range(1, 21)]
+        self.slots = self.db.read_all_rows()
 
         # Set initial button values
         self.button_1.setEnabled(False)
@@ -112,19 +121,27 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.get_sensor_data()
 
         # Connect a return pressed on the line edit to the qlistview
-        self.formula_selector_model = QStringListModel([f'slot {i}' for i in range(1, 21)])
+        self.formula_selector_model = QStringListModel(self.slots)
         self.formula_selector.setModel(self.formula_selector_model)
         self.formula_editor.returnPressed.connect(self.add_to_formula_selector)
+        self.formula_selector.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.update_left_button(False, init=True)
+
+        # Set input focus on formula-editor (so we don't need an extra computer, but just a keyboard)
+        self.formula_editor.setFocus()
 
     def interpret_bytebeat_formula(self, formula):
         self.byte_beat_formula = formula.replace(' ', '')
         self.formula_editor.setText(self.byte_beat_formula)
 
     def add_to_formula_selector(self):
-        self.formula_selector_model.insertRow(self.formula_selector_model.rowCount())
-        self.formula_selector_model.setData(self.formula_selector_model.index(self.formula_selector_model.rowCount() - 1), self.formula_editor.text())
-        self.formula_editor.clear()
+        current_index = self.formula_selector.currentIndex()
+        text = self.formula_editor.text()
+        if text == '':
+            text = f'slot {current_index.row() + 1}'
+            self.formula_editor.setText(text)
+        self.formula_selector_model.setData(self.formula_selector_model.index(current_index.row()), text)
+        self.db.update_row(current_index.row() + 1, text)
 
     # noinspection PyUnresolvedReferences
     def get_sensor_data(self):
@@ -190,6 +207,10 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
                 next_index = current_index.sibling(0, 0)
             self.formula_selector.setCurrentIndex(next_index)
             self.formula_selector.scrollTo(next_index)
+
+            # Update formula_editor
+            selected_text = self.formula_selector_model.data(next_index, 0)
+            self.formula_editor.setText(selected_text)
 
     def update_right_button(self, status):
         self.button_right.setEnabled(status)

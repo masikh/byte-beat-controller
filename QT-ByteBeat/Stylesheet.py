@@ -111,6 +111,8 @@ stylesheet = """
 QLineEdit {
     color: black;
     padding: 12px;
+    font-size: 28px;
+    font-weight: bold;
 }
 
 QListView {
