@@ -110,7 +110,6 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
         # Autocorrect and interpret
         self.byte_beat_formula = ''
-        self.formula_editor.textEdited.connect(self.interpret_bytebeat_formula)
 
         # Start pico read out and set button/dail values
         self.uart = Uart(self.device_file, debug=self.debug)
@@ -129,10 +128,6 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
         # Set input focus on formula-editor (so we don't need an extra computer, but just a keyboard)
         self.formula_editor.setFocus()
-
-    def interpret_bytebeat_formula(self, formula):
-        self.byte_beat_formula = formula.replace(' ', '')
-        self.formula_editor.setText(self.byte_beat_formula)
 
     def add_to_formula_selector(self):
         current_index = self.formula_selector.currentIndex()
@@ -234,5 +229,3 @@ if __name__ == '__main__':
     widget.show()
 
     app.exec()
-
-
