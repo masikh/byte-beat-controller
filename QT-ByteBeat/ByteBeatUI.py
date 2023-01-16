@@ -132,7 +132,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.play = False
         self.reverse = False
         self.stop = False
-        self.change_play_state({'play_pause': self.play})
+        self.change_play_state({'stop': self.stop})
 
         # Set initial button values
         self.button_1.setEnabled(False)
