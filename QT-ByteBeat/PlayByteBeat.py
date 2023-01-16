@@ -4,7 +4,7 @@ from pyaudio import PyAudio, paUInt8, paFloat32
 
 
 class PlayByteBeat():
-    def __init__(self, formula, run=False, positive=True):
+    def __init__(self, formula, positive=True):
         pa = PyAudio()
         self.audio_int = pa.open(format=paUInt8, channels=1, rate=8000, output=True)
         self.audio_float = pa.open(format=paFloat32, channels=1, rate=8000, output=True)

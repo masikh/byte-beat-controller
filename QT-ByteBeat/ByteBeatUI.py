@@ -30,7 +30,7 @@ class Worker(QObject):
     potmeter_3 = pyqtSignal(int)
     potmeter_4 = pyqtSignal(int)
     button_left = pyqtSignal(bool)
-    button_right = pyqtSignal(bool)
+    button_right = pyqtSignal(dict)
     button_left_last_value = 0
     button_right_last_value = 0
 
@@ -38,6 +38,20 @@ class Worker(QObject):
         super().__init__()
         self.uart = uart
         self.debug = debug
+        self.right_button_last_press_time = 0
+        self.right_button_pressed = False
+
+    def on_right_button_release(self):
+        delta = time.time() - self.right_button_last_press_time
+        if 0.4 < delta < 1:
+            # medium press
+            return {"reverse": True, "pressed": False}
+        if delta > 1:
+            # long press
+            return {"stop": True, "pressed": False}
+        else:
+            # single press
+            return {"play_pause": True, "pressed": False}
 
     # noinspection PyUnresolvedReferences
     def run(self):
@@ -66,9 +80,16 @@ class Worker(QObject):
                     self.button_left.emit(GPIO.input(left_button_gpio))
                     self.button_left_last_value = GPIO.input(left_button_gpio)
 
-                if GPIO.input(right_button_gpio) != self.button_right_last_value:
-                    self.button_right.emit(GPIO.input(right_button_gpio))
-                    self.button_right_last_value = GPIO.input(right_button_gpio)
+                if GPIO.input(right_button_gpio) == 1 and self.right_button_pressed is False:
+                    # 1x pause/play, 2x (in 1 sec) reverse
+                    # self.button_right_last_value = GPIO.input(right_button_gpio)
+                    self.right_button_pressed = True
+                    self.right_button_last_press_time = time.time()
+                    self.button_right.emit({"pressed": True})
+                elif GPIO.input(right_button_gpio) == 0 and self.right_button_pressed is True:
+                    value = self.on_right_button_release()
+                    self.button_right.emit(value)
+                    self.right_button_pressed = False
 
             except Exception as error:
                 if self.debug:
@@ -161,6 +182,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker.potmeter_4.connect(self.update_potmeter_4)
         self.worker.button_left.connect(self.update_left_button)
         self.worker.button_right.connect(self.update_right_button)
+        self.right_button_pressed = False
 
         # Start the thread
         self.thread.start()
@@ -210,7 +232,9 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
             self.formula_editor.setText(selected_text)
 
     def update_right_button(self, status):
-        self.button_right.setEnabled(status)
+        self.button_right.setEnabled(status['pressed'])
+        if status['pressed'] is False:
+            print(time.time(), status)
 
 
 if __name__ == '__main__':
