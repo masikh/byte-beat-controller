@@ -164,6 +164,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         # Connect a return pressed on the line edit to the qlistview
         self.formula_selector_model = QStringListModel(self.slots)
         self.formula_selector.setModel(self.formula_selector_model)
+        self.formula_selector.clicked.connect(self.add_selected_formula_to_editor)
         self.formula_editor.returnPressed.connect(self.add_to_formula_selector)
         self.formula_selector.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.update_left_button(False, init=True)
@@ -193,6 +194,10 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
             self.play_status.setText('>|')
         elif not self.play and self.reverse:
             self.play_status.setText('|<')
+
+    def add_selected_formula_to_editor(self, index):
+        text = index.data()
+        self.formula_editor.setText(text)
 
     def add_to_formula_selector(self):
         current_index = self.formula_selector.currentIndex()
