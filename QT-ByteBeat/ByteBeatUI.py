@@ -33,6 +33,7 @@ class Worker(QObject):
     button_right = pyqtSignal(dict)
     button_left_last_value = 0
     button_right_last_value = 0
+    change_play_state = pyqtSignal(dict)
 
     def __init__(self, uart, debug):
         super().__init__()
@@ -40,6 +41,8 @@ class Worker(QObject):
         self.debug = debug
         self.right_button_last_press_time = 0
         self.right_button_pressed = False
+        self.reverse_emitted = False
+        self.stop_emitted = False
 
     def on_right_button_release(self):
         delta = time.time() - self.right_button_last_press_time
@@ -81,8 +84,6 @@ class Worker(QObject):
                     self.button_left_last_value = GPIO.input(left_button_gpio)
 
                 if GPIO.input(right_button_gpio) == 1 and self.right_button_pressed is False:
-                    # 1x pause/play, 2x (in 1 sec) reverse
-                    # self.button_right_last_value = GPIO.input(right_button_gpio)
                     self.right_button_pressed = True
                     self.right_button_last_press_time = time.time()
                     self.button_right.emit({"pressed": True})
@@ -90,6 +91,20 @@ class Worker(QObject):
                     value = self.on_right_button_release()
                     self.button_right.emit(value)
                     self.right_button_pressed = False
+                    self.reverse_emitted = False
+                    self.stop_emitted = False
+                    if 0 < time.time() - self.right_button_last_press_time < 0.4:
+                        self.change_play_state.emit({'play_pause': True})
+
+                if self.right_button_pressed is True:
+                    if GPIO.input(right_button_gpio) == 1 and 0.4 < time.time() - self.right_button_last_press_time < 1:
+                        if self.reverse_emitted is False:
+                            self.reverse_emitted = True
+                            self.change_play_state.emit({'reverse': True})
+                    elif GPIO.input(right_button_gpio) == 1 and 1 < time.time() - self.right_button_last_press_time:
+                        if self.stop_emitted is False:
+                            self.stop_emitted = True
+                            self.change_play_state.emit({'stop': True})
 
             except Exception as error:
                 if self.debug:
@@ -112,6 +127,12 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         if self.db.is_new_db:
             [self.db.insert_row(f'slot {i}') for i in range(1, 21)]
         self.slots = self.db.read_all_rows()
+
+        # Playing states
+        self.play = False
+        self.reverse = False
+        self.stop = False
+        self.change_play_state({'play_pause': self.play})
 
         # Set initial button values
         self.button_1.setEnabled(False)
@@ -150,6 +171,29 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         # Set input focus on formula-editor (so we don't need an extra computer, but just a keyboard)
         self.formula_editor.setFocus()
 
+    def change_play_state(self, status):
+        if 'stop' in status:
+            self.play = False
+            self.reverse = False
+            self.stop = True
+        elif 'play_pause' in status:
+            self.play = not self.play
+            if self.play:
+                self.stop = False
+        elif 'reverse' in status:
+            self.reverse = not self.reverse
+
+        if self.stop:
+            self.play_status.setText('||')
+        elif self.play and not self.reverse:
+            self.play_status.setText('>')
+        elif self.play and self.reverse:
+            self.play_status.setText('<')
+        elif not self.play and not self.reverse:
+            self.play_status.setText('>|')
+        elif not self.play and self.reverse:
+            self.play_status.setText('|<')
+
     def add_to_formula_selector(self):
         current_index = self.formula_selector.currentIndex()
         text = self.formula_editor.text()
@@ -182,6 +226,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker.potmeter_4.connect(self.update_potmeter_4)
         self.worker.button_left.connect(self.update_left_button)
         self.worker.button_right.connect(self.update_right_button)
+        self.worker.change_play_state.connect(self.change_play_state)
         self.right_button_pressed = False
 
         # Start the thread

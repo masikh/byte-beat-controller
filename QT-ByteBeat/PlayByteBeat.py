@@ -16,6 +16,9 @@ class PlayByteBeat():
         self.byte_beat_values = []
         self.error = ""
 
+    def reset_time(self):
+        self.t = 1
+
     def increment(self):
         if self.positive:
             self.t += 1
