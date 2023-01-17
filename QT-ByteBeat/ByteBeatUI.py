@@ -10,6 +10,8 @@ from PyQt5 import QtWidgets as qtw
 from Stylesheet import stylesheet
 from Uart import Uart
 from TinySQL import TinySQL
+from PlayByteBeat import PlayByteBeat
+
 
 # Define button connections on the raspberry pi 4
 left_button_gpio = 23
@@ -46,15 +48,15 @@ class Worker(QObject):
 
     def on_right_button_release(self):
         delta = time.time() - self.right_button_last_press_time
+        if 0 < delta < 0.4:
+            # short press
+            return {"play_pause": True, "pressed": False}
         if 0.4 < delta < 1:
             # medium press
             return {"reverse": True, "pressed": False}
         if delta > 1:
             # long press
             return {"stop": True, "pressed": False}
-        else:
-            # single press
-            return {"play_pause": True, "pressed": False}
 
     # noinspection PyUnresolvedReferences
     def run(self):
@@ -133,6 +135,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.reverse = False
         self.stop = False
         self.change_play_state({'stop': self.stop})
+        self.update_right_button({'stop': True, 'pressed': False})
 
         # Set initial button values
         self.button_1.setEnabled(False)
@@ -171,6 +174,9 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
         # Set input focus on formula-editor (so we don't need an extra computer, but just a keyboard)
         self.formula_editor.setFocus()
+
+        # Setup Byte-beat class instance
+        self.byte_beat_playout = PlayByteBeat(formula='t')
 
     def change_play_state(self, status):
         if 'stop' in status:
@@ -239,27 +245,35 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
     def update_button_1(self, status):
         self.button_1.setEnabled(status)
+        self.byte_beat_playout.OB_value = status
 
     def update_button_2(self, status):
         self.button_2.setEnabled(status)
+        self.byte_beat_playout.BB_value = status
 
     def update_button_3(self, status):
         self.button_3.setEnabled(status)
+        self.byte_beat_playout.GB_value = status
 
     def update_button_4(self, status):
         self.button_4.setEnabled(status)
+        self.byte_beat_playout.RB_value = status
 
     def update_potmeter_1(self, value):
         self.potmeter_1.setValue(value)
+        self.byte_beat_playout.OP_value = value
 
     def update_potmeter_2(self, value):
         self.potmeter_2.setValue(value)
+        self.byte_beat_playout.BP_value = value
 
     def update_potmeter_3(self, value):
         self.potmeter_3.setValue(value)
+        self.byte_beat_playout.GP_value = value
 
     def update_potmeter_4(self, value):
         self.potmeter_4.setValue(value)
+        self.byte_beat_playout.RP_value = value
 
     def update_left_button(self, status, init=False):
         self.button_left.setEnabled(status)
@@ -284,7 +298,19 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
     def update_right_button(self, status):
         self.button_right.setEnabled(status['pressed'])
         if status['pressed'] is False:
+            if status['play_pause']:
+                self.byte_beat_playout.play = not self.byte_beat_playout.play
+
+            if status['reverse']:
+                self.byte_beat_playout.reverse = True
+
+            if status['stop']:
+                self.byte_beat_playout.play = False
+                self.byte_beat_playout.reverse = False
+                self.byte_beat_playout.t = 1
             print(time.time(), status)
+            # play/pause, reverse, stop
+
 
 
 if __name__ == '__main__':
