@@ -69,7 +69,9 @@ class WorkerPlayer(QObject):
             if self.play is True:
                 self.byte_beat.compute(self.is_byte_beat)
                 self.byte_beat.to_pyaudio(self.is_byte_beat)
-            time.sleep(0)
+                time.sleep(0)
+            else:
+                time.sleep(0.1)
 
 
 class WorkerSensors(QObject):
