@@ -35,7 +35,7 @@
   <property name="autoFillBackground">
    <bool>false</bool>
   </property>
-  <widget class="QGraphicsView" name="frequency_plot">
+  <widget class="GraphicsLayoutWidget" name="frequency_plot">
    <property name="geometry">
     <rect>
      <x>180</x>
@@ -421,6 +421,13 @@
   <zorder>button_4</zorder>
   <zorder>play_status</zorder>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>GraphicsLayoutWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

@@ -2,6 +2,10 @@ import argparse
 import os
 import time
 import RPi.GPIO as GPIO
+import numpy as np
+
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore as graphCore
 from qtbytebeat import Ui_Form
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, QStringListModel
@@ -30,7 +34,7 @@ class WorkerPlayer(QObject):
         self.byte_beat = PlayByteBeat()
 
         # Current en next Formula
-        self.byte_beat.current_formula = ''
+        self.byte_beat.current_formula = 't'
         self.byte_beat.next_formula = ''
 
         # Current formula is byte or float beat
@@ -69,9 +73,7 @@ class WorkerPlayer(QObject):
             if self.play is True:
                 self.byte_beat.compute(self.is_byte_beat)
                 self.byte_beat.to_pyaudio(self.is_byte_beat)
-                time.sleep(0)
-            else:
-                time.sleep(0.1)
+            time.sleep(0)
 
 
 class WorkerSensors(QObject):
@@ -90,10 +92,9 @@ class WorkerSensors(QObject):
     button_right_last_value = 0
     change_play_state = pyqtSignal(dict)
 
-    def __init__(self, uart, debug):
+    def __init__(self, uart):
         super().__init__()
         self.uart = uart
-        self.debug = debug
         self.right_button_last_press_time = 0
         self.right_button_pressed = False
         self.reverse_emitted = False
@@ -115,24 +116,20 @@ class WorkerSensors(QObject):
     def run(self):
         while True:
             try:
-                if self.debug:
-                    message = self.uart.mock()
-                else:
-                    message = self.uart.read()
+                message = self.uart.read()
 
                 if message is not None:
-                    self.button_1.emit(message['48']['btn0'])
-                    self.button_2.emit(message['48']['btn1'])
-                    self.potmeter_1.emit(message['48']['adc0'])
-                    self.potmeter_2.emit(message['48']['adc1'])
+                    if message['pico_0'] is not None:
+                        self.button_1.emit(message['pico_0']['btn0'])
+                        self.button_2.emit(message['pico_0']['btn1'])
+                        self.potmeter_1.emit(message['pico_0']['adc0'])
+                        self.potmeter_2.emit(message['pico_0']['adc1'])
 
-                    self.button_3.emit(message['49']['btn0'])
-                    self.button_4.emit(message['49']['btn1'])
-                    self.potmeter_3.emit(message['49']['adc0'])
-                    self.potmeter_4.emit(message['49']['adc1'])
-                else:
-                    # Something went wrong, give the uart time to clean up...
-                    sleep(1)
+                    if message['pico_1'] is not None:
+                        self.button_3.emit(message['pico_1']['btn0'])
+                        self.button_4.emit(message['pico_1']['btn1'])
+                        self.potmeter_3.emit(message['pico_1']['adc0'])
+                        self.potmeter_4.emit(message['pico_1']['adc1'])
 
                 if GPIO.input(left_button_gpio) != self.button_left_last_value:
                     self.button_left.emit(GPIO.input(left_button_gpio))
@@ -170,9 +167,10 @@ class WorkerSensors(QObject):
 
 
 class ByteBeatUI(qtw.QWidget, Ui_Form):
-    def __init__(self, device_file, debug, *args, **kwargs):
+    def __init__(self, pico_0, pico_1, debug, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.device_file = device_file
+        self.pico_0 = pico_0
+        self.pico_1 = pico_1
         self.debug = debug
         self.setupUi(self)
 
@@ -203,11 +201,11 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.byte_beat_formula = ''
 
         # Start pico read out and set button/dail values
-        self.uart = Uart(self.device_file, debug=self.debug)
+        self.uart = Uart(pico_0=self.pico_0, pico_1=self.pico_1, debug=self.debug)
 
         # Setup Qthread and worker object for sensor reading
-        self.thread = QThread()
-        self.worker = WorkerSensors(self.uart, self.debug)
+        self.sensor_thread = QThread()
+        self.worker_sensor = WorkerSensors(self.uart)
         self.get_sensor_data()
 
         # Setup Qthread and worker object for player
@@ -232,28 +230,16 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.change_play_state({'stop': self.stop})
         self.update_right_button({'stop': True, 'pressed': False})
 
-    def change_play_state(self, status):
-        if 'stop' in status:
-            self.play = False
-            self.reverse = False
-            self.stop = True
-        elif 'play_pause' in status:
-            self.play = not self.play
-            if self.play:
-                self.stop = False
-        elif 'reverse' in status:
-            self.reverse = not self.reverse
-
-        if self.stop:
-            self.play_status.setText('||')
-        elif self.play and not self.reverse:
-            self.play_status.setText('>')
-        elif self.play and self.reverse:
-            self.play_status.setText('<')
-        elif not self.play and not self.reverse:
-            self.play_status.setText('>|')
-        elif not self.play and self.reverse:
-            self.play_status.setText('|<')
+        # Show frequency plot
+        # Enable antialiasing for prettier plots
+        # pg.setConfigOptions(antialias=True)
+        # pg.setConfigOption('background', (255, 255, 255, 255))
+        # pg.setConfigOption('leftButtonPan', False)
+        # self.plot_window = self.frequency_plot.addPlot()
+        # self.plot_window.hideAxis('left')
+        # self.plot_window.setMenuEnabled(False)
+        # self.plot_window.setMouseEnabled(x=False, y=False)
+        # self.curve = self.plot_window.plot(pen='y')
 
     def add_selected_formula_to_editor(self, index):
         text = index.data()
@@ -263,14 +249,17 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
     def add_to_formula_selector(self):
         current_index = self.formula_selector.currentIndex()
         text = self.formula_editor.text()
+        is_valid, is_byte_beat = self.worker_player.byte_beat.is_valid_formula(text)
+        if is_valid is True:
+            self.formula_selector_model.setData(self.formula_selector_model.index(current_index.row()), text)
+            self.worker_player.byte_beat.next_formula = text
+            self.db.update_row(current_index.row() + 1, text)
+
         if text == '':
             text = f'slot {current_index.row() + 1}'
+            self.formula_selector_model.setData(self.formula_selector_model.index(current_index.row()), text)
             self.formula_editor.setText(text)
-        self.formula_selector_model.setData(self.formula_selector_model.index(current_index.row()), text)
-        self.worker_player.byte_beat.next_formula = text
-
-        # Save to database
-        self.db.update_row(current_index.row() + 1, text)
+            self.db.update_row(current_index.row() + 1, text)
 
     def check_editted_formula(self):
         text = self.formula_editor.text()
@@ -283,29 +272,29 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
     # noinspection PyUnresolvedReferences
     def get_sensor_data(self):
         # Move worker to the thread
-        self.worker.moveToThread(self.thread)
+        self.worker_sensor.moveToThread(self.sensor_thread)
 
         # Connect signals and slots
-        self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
+        self.sensor_thread.started.connect(self.worker_sensor.run)
+        self.worker_sensor.finished.connect(self.sensor_thread.quit)
+        self.worker_sensor.finished.connect(self.worker_sensor.deleteLater)
+        self.sensor_thread.finished.connect(self.sensor_thread.deleteLater)
 
-        self.worker.button_1.connect(self.update_button_1)
-        self.worker.button_2.connect(self.update_button_2)
-        self.worker.button_3.connect(self.update_button_3)
-        self.worker.button_4.connect(self.update_button_4)
-        self.worker.potmeter_1.connect(self.update_potmeter_1)
-        self.worker.potmeter_2.connect(self.update_potmeter_2)
-        self.worker.potmeter_3.connect(self.update_potmeter_3)
-        self.worker.potmeter_4.connect(self.update_potmeter_4)
-        self.worker.button_left.connect(self.update_left_button)
-        self.worker.button_right.connect(self.update_right_button)
-        self.worker.change_play_state.connect(self.change_play_state)
+        self.worker_sensor.button_1.connect(self.update_button_1)
+        self.worker_sensor.button_2.connect(self.update_button_2)
+        self.worker_sensor.button_3.connect(self.update_button_3)
+        self.worker_sensor.button_4.connect(self.update_button_4)
+        self.worker_sensor.potmeter_1.connect(self.update_potmeter_1)
+        self.worker_sensor.potmeter_2.connect(self.update_potmeter_2)
+        self.worker_sensor.potmeter_3.connect(self.update_potmeter_3)
+        self.worker_sensor.potmeter_4.connect(self.update_potmeter_4)
+        self.worker_sensor.button_left.connect(self.update_left_button)
+        self.worker_sensor.button_right.connect(self.update_right_button)
+        self.worker_sensor.change_play_state.connect(self.change_play_state)
         self.right_button_pressed = False
 
         # Start the thread
-        self.thread.start()
+        self.sensor_thread.start()
 
     def start_player(self):
         # Move worker to the thread
@@ -316,9 +305,20 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker_player.finished.connect(self.thread_player.quit)
         self.worker_player.finished.connect(self.worker_player.deleteLater)
         self.thread_player.finished.connect(self.thread_player.deleteLater)
+        # self.worker_player.update_graph.connect(self.update_graph)
 
         # Start the thread
         self.thread_player.start()
+
+    def update_graph(self, data):
+        # is_byte_beat = data['is_byte_beat']
+        # np_array = np.array(data['values'])
+        # t = data['t']
+        # reverse = data['reverse']
+        #
+        # self.curve.setData(np_array)
+        # self.plot_window.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
+        pass
 
     def update_button_1(self, status):
         self.button_1.setEnabled(status)
@@ -385,20 +385,45 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
             if 'stop' in status and status['stop']:
                 self.worker_player.stop_player()
 
+    def change_play_state(self, status):
+        if 'stop' in status:
+            self.play = False
+            self.reverse = False
+            self.stop = True
+        elif 'play_pause' in status:
+            self.play = not self.play
+            if self.play:
+                self.stop = False
+        elif 'reverse' in status:
+            self.reverse = not self.reverse
+
+        if self.stop:
+            self.play_status.setText('||')
+        elif self.play and not self.reverse:
+            self.play_status.setText('>')
+        elif self.play and self.reverse:
+            self.play_status.setText('<')
+        elif not self.play and not self.reverse:
+            self.play_status.setText('>|')
+        elif not self.play and self.reverse:
+            self.play_status.setText('|<')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--device_file", help="Serial device (/dev/serial0)", type=str, default='/dev/serial0')
+    parser.add_argument("-p0", "--pico_0", help="Serial device pico0 (/dev/ttyAMA0)", type=str, default='/dev/ttyAMA0')
+    parser.add_argument("-p1", "--pico_1", help="Serial device pico1 (/dev/ttyAMA1)", type=str, default='/dev/ttyAMA1')
     parser.add_argument("-D", "--debug", help="Enable debug mode", default=False, action="store_true")
     args = parser.parse_args()
-    device_file = args.device_file
+    pico_0 = args.pico_0
+    pico_1 = args.pico_1
     debug = args.debug
 
     app = qtw.QApplication([])
     app.setStyleSheet(stylesheet)
     cwd = os.getcwd()
     QtCore.QDir.addSearchPath('bg', f'{cwd}')
-    widget = ByteBeatUI(device_file=device_file, debug=debug)
+    widget = ByteBeatUI(pico_0, pico_1, debug)
     widget.show()
 
     app.exec()

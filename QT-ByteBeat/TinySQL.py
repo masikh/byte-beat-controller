@@ -13,15 +13,24 @@ class TinySQL:
         self.conn.commit()
 
     def update_row(self, index, new_value):
-        self.cursor.execute(f'UPDATE mytable SET textfield = "{new_value}" WHERE rowid = {index}')
-        self.conn.commit()
+        try:
+            self.cursor.execute(f'UPDATE mytable SET textfield = "{new_value}" WHERE rowid = {index}')
+            self.conn.commit()
+        except Exception as error:
+            pass
 
     def insert_row(self, value):
-        self.cursor.execute(f'INSERT INTO mytable (textfield) VALUES ("{value}")')
-        self.conn.commit()
+        try:
+            self.cursor.execute(f'INSERT INTO mytable (textfield) VALUES ("{value}")')
+            self.conn.commit()
+        except Exception as error:
+            pass
 
     def read_all_rows(self):
-        self.cursor.execute("SELECT * FROM mytable")
-        data = self.cursor.fetchall()
-        result = [x[0] for x in data]
-        return result
+        try:
+            self.cursor.execute("SELECT * FROM mytable")
+            data = self.cursor.fetchall()
+            result = [x[0] for x in data]
+            return result
+        except Exception as error:
+            return []

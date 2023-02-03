@@ -9,6 +9,7 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from pyqtgraph import GraphicsLayoutWidget
 
 
 class Ui_Form(object):
@@ -28,7 +29,7 @@ class Ui_Form(object):
         Form.setCursor(QtGui.QCursor(QtCore.Qt.BlankCursor))
         Form.setAcceptDrops(False)
         Form.setAutoFillBackground(False)
-        self.frequency_plot = QtWidgets.QGraphicsView(Form)
+        self.frequency_plot = GraphicsLayoutWidget(Form)
         self.frequency_plot.setGeometry(QtCore.QRect(180, 80, 920, 181))
         self.frequency_plot.setMouseTracking(True)
         self.frequency_plot.setTabletTracking(True)

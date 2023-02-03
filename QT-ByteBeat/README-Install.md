@@ -159,7 +159,9 @@ Now reboot and check if the screen is correctly rotated and more readable.
     [sudo] password for bytebeat: xxxxxxxx
     bytebeat@bytebeat:~/QT-Bytebeat$ raspi-config
 
-####
+#### Set default runlevel
+
+    sudo systemctl set-default multi-user.target
 
 
 

@@ -7,8 +7,9 @@ from pyaudio import PyAudio, paUInt8, paFloat32
 class PlayByteBeat():
     def __init__(self):
         self.pa = PyAudio()
-        self.audio_int = self.pa.open(format=paUInt8, channels=1, rate=8000, output=True)
-        self.audio_float = self.pa.open(format=paFloat32, channels=1, rate=8000, output=True)
+        self.frames_per_buffer = 0x100
+        self.audio_int = self.pa.open(format=paUInt8, channels=1, rate=8000, output=True, frames_per_buffer=self.frames_per_buffer)
+        self.audio_float = self.pa.open(format=paFloat32, channels=1, rate=8000, output=True, frames_per_buffer=self.frames_per_buffer)
         self.current_formula = 't'
         self.next_formula = 't'
 
@@ -76,7 +77,7 @@ class PlayByteBeat():
             self.t = 1
 
         formula = self.replace(self.current_formula)
-        for _i in range(0x80):
+        for _i in range(0x100):
             try:
                 if is_byte_beat is True:
                     value = eval(formula, {'t': self.t})
@@ -125,7 +126,7 @@ class PlayByteBeat():
     def norm_f(value, factor):
         """ Normalize value with factor, return float """
         value = round((value + 0.000000000001) / 50) * 50  # 50 is about the average sweep of a potmeter...
-        return ((value + 0.000000000001) / 4095) * factor  # Value between virtually 0 and factor
+        return ((value + 1) / 4095) * factor  # Value between virtually 0 and factor
 
     @staticmethod
     def button(value):
