@@ -77,7 +77,7 @@ class PlayByteBeat():
             self.t = 1
 
         formula = self.replace(self.current_formula)
-        for _i in range(0x100):
+        for _i in range(self.frames_per_buffer):
             try:
                 if is_byte_beat is True:
                     value = eval(formula, {'t': self.t})

@@ -27,6 +27,7 @@ GPIO.setup(right_button_gpio, GPIO.IN)
 
 class WorkerPlayer(QObject):
     finished = pyqtSignal()
+    emit_graph_data = pyqtSignal(bool, int, bool, list)
 
     def __init__(self):
         super().__init__()
@@ -73,6 +74,10 @@ class WorkerPlayer(QObject):
             if self.play is True:
                 self.byte_beat.compute(self.is_byte_beat)
                 self.byte_beat.to_pyaudio(self.is_byte_beat)
+                self.emit_graph_data.emit(self.is_byte_beat,
+                                          self.byte_beat.t,
+                                          self.byte_beat.reverse,
+                                          self.byte_beat.byte_beat_values)
             time.sleep(0)
 
 
@@ -209,7 +214,7 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.get_sensor_data()
 
         # Setup Qthread and worker object for player
-        self.thread_player = QThread()
+        self.player_thread = QThread()
         self.worker_player = WorkerPlayer()
         self.start_player()
 
@@ -232,14 +237,19 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
         # Show frequency plot
         # Enable antialiasing for prettier plots
-        # pg.setConfigOptions(antialias=True)
-        # pg.setConfigOption('background', (255, 255, 255, 255))
-        # pg.setConfigOption('leftButtonPan', False)
-        # self.plot_window = self.frequency_plot.addPlot()
+        pg.setConfigOptions(antialias=True)
+        pg.setConfigOption('background', (255, 255, 255, 0))
+        pg.setConfigOption('leftButtonPan', False)
+        self.plot_window = self.frequency_plot.addPlot()
         # self.plot_window.hideAxis('left')
-        # self.plot_window.setMenuEnabled(False)
-        # self.plot_window.setMouseEnabled(x=False, y=False)
-        # self.curve = self.plot_window.plot(pen='y')
+        self.plot_window.hideAxis('bottom')
+        self.plot_window.setMenuEnabled(False)
+        self.plot_window.setMouseEnabled(x=False, y=False)
+        self.curve = self.plot_window.plot(pen='y')
+        self.graph_buffer = np.empty(0)
+
+    def right_button_clicked(self):
+        self.worker_player.play = True
 
     def add_selected_formula_to_editor(self, index):
         text = index.data()
@@ -298,27 +308,36 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
 
     def start_player(self):
         # Move worker to the thread
-        self.worker_player.moveToThread(self.thread_player)
+        self.worker_player.moveToThread(self.player_thread)
 
         # Connect signals and slots
-        self.thread_player.started.connect(self.worker_player.run)
-        self.worker_player.finished.connect(self.thread_player.quit)
+        self.player_thread.started.connect(self.worker_player.run)
+        self.worker_player.finished.connect(self.player_thread.quit)
         self.worker_player.finished.connect(self.worker_player.deleteLater)
-        self.thread_player.finished.connect(self.thread_player.deleteLater)
-        # self.worker_player.update_graph.connect(self.update_graph)
+        self.player_thread.finished.connect(self.player_thread.deleteLater)
+        self.worker_player.emit_graph_data.connect(self.update_graph)
 
         # Start the thread
-        self.thread_player.start()
+        self.player_thread.start()
 
-    def update_graph(self, data):
-        # is_byte_beat = data['is_byte_beat']
-        # np_array = np.array(data['values'])
-        # t = data['t']
-        # reverse = data['reverse']
-        #
-        # self.curve.setData(np_array)
-        # self.plot_window.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
-        pass
+    def update_graph(self, is_byte_beat, t, reverse, data):
+        data = np.array(data)
+        seconds = 2
+        time_delta = 1 + 256 * 4 * 8 * seconds
+        if len(self.graph_buffer) == 0:
+            self.graph_buffer = np.zeros(time_delta)
+
+        if reverse is True:
+            self.graph_buffer = np.concatenate((data, self.graph_buffer))
+            if len(self.graph_buffer) > time_delta:
+                self.graph_buffer = self.graph_buffer[:time_delta]
+        else:
+            self.graph_buffer = np.concatenate((self.graph_buffer, data))
+            if len(self.graph_buffer) > time_delta:
+                self.graph_buffer = self.graph_buffer[-time_delta:]
+
+        self.curve.setData(self.graph_buffer)
+        self.plot_window.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
 
     def update_button_1(self, status):
         self.button_1.setEnabled(status)

@@ -18,28 +18,28 @@ class Uart:
             self.serial_0 = serial.Serial(self.pico_0, 115200, timeout=0.5)
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: open_serial_0() {error}', flush=True)
 
     def open_serial_1(self):
         try:
             self.serial_1 = serial.Serial(self.pico_1, 115200, timeout=0.5)
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: open_serial_1() {error}', flush=True)
 
     def close_serial_0(self):
         try:
             self.serial_0.close()
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: close_serial_0() {error}', flush=True)
 
     def close_serial_1(self):
         try:
             self.serial_1.close()
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: close_serial_1() {error}', flush=True)
 
     def read_pico_0(self):
         try:
@@ -48,7 +48,7 @@ class Uart:
             return json.loads(input_0.decode('utf-8'))
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: read_pico_0() {error}', flush=True)
             self.close_serial_0()
             self.open_serial_0()
             return None
@@ -60,7 +60,7 @@ class Uart:
             return json.loads(input_1.decode('utf-8'))
         except Exception as error:
             if self.debug:
-                print(error, flush=True)
+                print(f'uart error: read_pico_1() {error}', flush=True)
             self.close_serial_1()
             self.open_serial_1()
             return None
@@ -76,7 +76,7 @@ class Uart:
             return result
         except Exception as error:
             if self.debug:
-                print(f'{error}', flush=True)
+                print(f'uart error: read() {error}', flush=True)
             return None
 
 
@@ -84,4 +84,4 @@ if __name__ == '__main__':
     uart = Uart(pico_0='/dev/ttyAMA0', pico_1='/dev/ttyAMA1', debug=True)
     while True:
         data = uart.read()
-        print(f'{data}\r', end='', flush=True)
+        print(f'\r{data}', end='', flush=True)
