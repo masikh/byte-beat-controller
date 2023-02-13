@@ -27,7 +27,8 @@ GPIO.setup(right_button_gpio, GPIO.IN)
 
 class WorkerPlayer(QObject):
     finished = pyqtSignal()
-    emit_graph_data = pyqtSignal(bool, int, bool, list)
+    emit_graph_data = pyqtSignal(int, bool, list)
+    reset_graph = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -45,12 +46,19 @@ class WorkerPlayer(QObject):
         self.play = False
         self.byte_beat.t = 1
 
+        # Reset graph
+        self.reset_graph_emit = False
+
     def switch_play_pause(self):
         if self.byte_beat.current_formula != self.byte_beat.next_formula:
             is_valid, is_byte_beat = self.byte_beat.is_valid_formula(self.byte_beat.next_formula)
             if is_valid is True:
                 self.byte_beat.current_formula = self.byte_beat.next_formula
                 self.is_byte_beat = is_byte_beat
+
+                # Reset graph emitter
+                self.reset_graph_emit = True
+
                 if self.play is False:
                     self.play = not self.play
                 time.sleep(0)
@@ -61,12 +69,14 @@ class WorkerPlayer(QObject):
 
     def switch_reverse(self):
         self.byte_beat.reverse = not self.byte_beat.reverse
+        self.reset_graph_emit = True
         time.sleep(0)
 
     def stop_player(self):
         self.play = False
         self.byte_beat.reverse = False
         self.byte_beat.t = 1
+        self.reset_graph_emit = True
         time.sleep(0)
 
     def run(self):
@@ -74,10 +84,13 @@ class WorkerPlayer(QObject):
             if self.play is True:
                 self.byte_beat.compute(self.is_byte_beat)
                 self.byte_beat.to_pyaudio(self.is_byte_beat)
-                self.emit_graph_data.emit(self.is_byte_beat,
-                                          self.byte_beat.t,
-                                          self.byte_beat.reverse,
-                                          self.byte_beat.byte_beat_values)
+                if self.reset_graph_emit is True:
+                    self.reset_graph_emit = False
+                    self.reset_graph.emit()
+                else:
+                    self.emit_graph_data.emit(self.byte_beat.t,
+                                              self.byte_beat.reverse,
+                                              self.byte_beat.byte_beat_values)
             time.sleep(0)
 
 
@@ -179,6 +192,17 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.debug = debug
         self.setupUi(self)
 
+        # Show frequency plot
+        self.graph_buffer = np.empty(0)
+        pg.setConfigOptions(antialias=False)
+        pg.setConfigOption('background', (255, 255, 255, 0))
+        pg.setConfigOption('leftButtonPan', False)
+        self.plot_window = self.frequency_plot.addPlot()
+        self.plot_window.hideAxis('left')
+        self.plot_window.setMenuEnabled(False)
+        self.plot_window.setMouseEnabled(x=False, y=False)
+        self.curve = self.plot_window.plot(pen='y')
+
         # Setup database
         self.slots = []
         self.db = TinySQL('bytebeat.db')
@@ -234,19 +258,6 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.stop = False
         self.change_play_state({'stop': self.stop})
         self.update_right_button({'stop': True, 'pressed': False})
-
-        # Show frequency plot
-        # Enable antialiasing for prettier plots
-        pg.setConfigOptions(antialias=True)
-        pg.setConfigOption('background', (255, 255, 255, 0))
-        pg.setConfigOption('leftButtonPan', False)
-        self.plot_window = self.frequency_plot.addPlot()
-        # self.plot_window.hideAxis('left')
-        self.plot_window.hideAxis('bottom')
-        self.plot_window.setMenuEnabled(False)
-        self.plot_window.setMouseEnabled(x=False, y=False)
-        self.curve = self.plot_window.plot(pen='y')
-        self.graph_buffer = np.empty(0)
 
     def right_button_clicked(self):
         self.worker_player.play = True
@@ -316,11 +327,12 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         self.worker_player.finished.connect(self.worker_player.deleteLater)
         self.player_thread.finished.connect(self.player_thread.deleteLater)
         self.worker_player.emit_graph_data.connect(self.update_graph)
+        self.worker_player.reset_graph.connect(self.reset_graph)
 
         # Start the thread
         self.player_thread.start()
 
-    def update_graph(self, is_byte_beat, t, reverse, data):
+    def update_graph(self, t, reverse, data):
         data = np.array(data)
         seconds = 2
         time_delta = 1 + 256 * 4 * 8 * seconds
@@ -337,7 +349,16 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
                 self.graph_buffer = self.graph_buffer[-time_delta:]
 
         self.curve.setData(self.graph_buffer)
-        self.plot_window.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
+        self.plot_window.setLabel(axis='bottom', text=f't: {t}')
+        self.plot_window.enableAutoRange('xy', True)
+
+    def reset_graph(self):
+        seconds = 2
+        time_delta = 1 + 256 * 4 * 8 * seconds
+        self.graph_buffer = np.zeros(time_delta)
+        self.curve.setData(self.graph_buffer)
+        self.plot_window.setLabel(axis='bottom', text=f't: 1')
+        self.plot_window.enableAutoRange('xy', True)
 
     def update_button_1(self, status):
         self.button_1.setEnabled(status)
