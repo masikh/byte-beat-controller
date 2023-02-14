@@ -184,6 +184,11 @@ class WorkerSensors(QObject):
             time.sleep(0.07)
 
 
+class MyStringAxis(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        pg.AxisItem.__init__(self, *args, **kwargs)
+
+
 class ByteBeatUI(qtw.QWidget, Ui_Form):
     def __init__(self, pico_0, pico_1, debug, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -195,13 +200,15 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
         # Show frequency plot
         self.graph_buffer = np.empty(0)
         pg.setConfigOptions(antialias=False)
-        pg.setConfigOption('background', (255, 255, 255, 0))
         pg.setConfigOption('leftButtonPan', False)
+
         self.plot_window = self.frequency_plot.addPlot()
         self.plot_window.hideAxis('left')
         self.plot_window.setMenuEnabled(False)
         self.plot_window.setMouseEnabled(x=False, y=False)
-        self.curve = self.plot_window.plot(pen='y')
+        self.curve = self.plot_window.plot(pen='r', width=1)
+        self.plot_window.setAxisItems(axisItems={'bottom': MyStringAxis(orientation='bottom', pen=(0, 0, 0, 0))})
+        self.plot_window.getAxis('bottom').setStyle(tickLength=0, showValues=False)
 
         # Setup database
         self.slots = []
@@ -348,8 +355,8 @@ class ByteBeatUI(qtw.QWidget, Ui_Form):
             if len(self.graph_buffer) > time_delta:
                 self.graph_buffer = self.graph_buffer[-time_delta:]
 
-        self.curve.setData(self.graph_buffer)
-        self.plot_window.setLabel(axis='bottom', text=f't: {t}')
+        self.curve.setData(self.graph_buffer[1::8])
+        self.plot_window.setLabel(axis='bottom', text=f't: {t}', units=None)
         self.plot_window.enableAutoRange('xy', True)
 
     def reset_graph(self):
