@@ -31,7 +31,6 @@
 
 int sin_table[180];
 int sample_rate = 0;
-uint8_t CID = 49;  // Controller identifier (48 or 49 for second one)
 
 
 struct UART_INTERFACE {
@@ -93,19 +92,25 @@ void on_uart_rx() {
     char msg_string[100];
 
     // read as ascii char
-    uint8_t cid = uart_getc(uart_0.uart_id); // Check if request is for me (controller id)! (should be 48)
-    if (cid == CID) {
-        if (uart_is_writable(uart_0.uart_id)) {
-            // Create JSON string
-            sprintf(msg_string, "{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}\n",
-                   pot_meter_0.value, pot_meter_1.value,
-                   button_0.status ? "true" : "false", button_1.status ? "true" : "false",
-                   sample_rate,
-                   cid);
+    uint8_t cid = uart_getc(uart_0.uart_id);
+    /*
+    printf("{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}",
+           pot_meter_0.value, pot_meter_1.value,
+           button_0.status ? "true" : "false", button_1.status ? "true" : "false",
+           sample_rate,
+           cid);
+    */
+    if (uart_is_writable(uart_0.uart_id)) {
+        // Create JSON string
+        sprintf(msg_string, "{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}",
+               pot_meter_0.value, pot_meter_1.value,
+               button_0.status ? "true" : "false", button_1.status ? "true" : "false",
+               sample_rate,
+               cid);
+        printf("%s", msg_string);
 
-            // Send JSON to UART
-            uart_puts(uart_0.uart_id, msg_string);
-        }
+        // Send JSON to UART
+        uart_puts(uart_0.uart_id, msg_string);
     }
 };
 
@@ -198,7 +203,8 @@ void core1_sensor_reader() {
             count = (count + 1) % 180;
             epoch = time_us_64();
         }
-        if ((time_us_64() - epoch2) > 500000) { // 1/2 second
+        // if ((time_us_64() - epoch2) > 500000) { // 1/2 second
+        if ((time_us_64() - epoch2) > 500) { // 1/2 second
             epoch2 = time_us_64();
             sample_rate = sample_count * 2;  // samples per second...
             sample_count = 0;
@@ -250,11 +256,6 @@ int main() {
         bool got_data = multicore_fifo_rvalid();
         if (got_data) {
             multicore_fifo_pop_blocking();
-            printf("{\"adc0\": %d, \"adc1\": %d, \"btn0\": %s, \"btn1\": %s, \"sr\": \"%d/s\", \"cid\": %d}\n",
-                   pot_meter_0.value, pot_meter_1.value,
-                   button_0.status ? "true" : "false", button_1.status ? "true" : "false",
-                   sample_rate,
-                   CID);
         }
     }
     return 0;
