@@ -1,5 +1,7 @@
 # byte-beat-controller
 
+[![Language](https://img.shields.io/github/languages/top/masikh/byte-beat-controller)](https://github.com/masikh/byte-beat-controller) [![Last commit](https://img.shields.io/github/last-commit/masikh/byte-beat-controller)](https://github.com/masikh/byte-beat-controller/commits) [![Repo size](https://img.shields.io/github/repo-size/masikh/byte-beat-controller)](https://github.com/masikh/byte-beat-controller) [![Stars](https://img.shields.io/github/stars/masikh/byte-beat-controller?style=flat)](https://github.com/masikh/byte-beat-controller/stargazers)
+
 ```
 cd build
 cmake ..
